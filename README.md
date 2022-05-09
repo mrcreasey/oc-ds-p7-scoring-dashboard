@@ -1,2 +1,3 @@
-# oc-ds-p7-scoring-dashboard
- Openclassrooms Data Scientist - Projet 7 - Implémentez un modèle de scoring
+# Projet 7 - Implémentez un modèle de scoring
+
+Openclassrooms parcours **Data Scientist**
