@@ -1,3 +1,34 @@
+# Project specific .gitignore
+.idea/
+.vscode/
+*.zip
+*.lnk
+*.xlsx
+# put any (temporary) files to ignore in ignore directory
+ignore/
+
+# data files too large for source control
+# (see README.md or jupyter notebooks for data sources)
+data/
+
+# don't save saved models to git
+saved_models/
+*.pickle
+
+# python file to add table of contents (toc) to jupyter notebook
+add_toc.py
+# table of contents as text file
+*.ipynb.txt  
+
+# temporary disable output images
+images/ 
+
+
+# -----------------------------------------
+# Standard python .gitignore below
+# record any project modifications using version control
+# https://github.com/github/gitignore/blob/master/Python.gitignore
+# -----------------------------------------
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
