@@ -1,0 +1,9 @@
+{
+    "default": true,
+    "MD013": false,
+    "MD025": false,
+    "MD036": false,
+    "MD004": {"style": "dash"},
+    "MD041": true,
+    "MD033": { "allowed_elements": ["a","img","style","p", "b", "br"] }
+}
