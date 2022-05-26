@@ -1,0 +1,12 @@
+# https://github.com/PyCQA/pylint/blob/main/pylintrc
+[MESSAGES CONTROL]
+# stop pylint complaining about names like ax, df, nb, ...
+# disable=invalid-name
+
+[VARIABLES]
+# Argument names that match this expression will be ignored. Default to name
+# with leading underscore.
+ignored-argument-names=_.*, df, nb
+
+# Good variable names which should always be accepted, separated by a comma
+good-names=i,j,k,ex,Run,_,df,ax,

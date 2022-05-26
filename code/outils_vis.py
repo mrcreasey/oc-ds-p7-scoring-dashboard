@@ -39,9 +39,11 @@ def to_png(fig_name=None) -> None:
 
     def get_title() -> str:
         """find current plot title (or suptitle if more than one plot)"""
+        # pylint: disable=protected-access
         if plt.gcf()._suptitle is None:  # noqa
             return plt.gca().get_title()
         else:
+            # pylint: disable=protected-access
             return plt.gcf()._suptitle.get_text()  # noqa
 
     if settings.get('SAVE_IMAGES') is True:

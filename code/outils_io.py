@@ -4,8 +4,9 @@ File utilities
 
 import os
 import sys
-import pkg_resources
 import subprocess
+import pkg_resources
+
 
 
 def os_make_dir(folder):
@@ -52,6 +53,7 @@ def install_libraries(required=None) -> None:
     """
     if required is None:
         required = {'numpy', 'pandas', 'matplotlib', 'seaborn'}
+    # pylint:disable=not-an-iterable    
     installed = {pkg.key for pkg in pkg_resources.working_set}  # noqa
     missing = required - installed
     print(f'required modules: {list(required)}')
