@@ -1,5 +1,7 @@
 """
 File utilities
+Used to install libraries
+Imports only standard python libraries
 """
 
 import os
@@ -53,7 +55,7 @@ def install_libraries(required=None) -> None:
     """
     if required is None:
         required = {'numpy', 'pandas', 'matplotlib', 'seaborn'}
-    # pylint:disable=not-an-iterable    
+    # pylint:disable=not-an-iterable
     installed = {pkg.key for pkg in pkg_resources.working_set}  # noqa
     missing = required - installed
     print(f'required modules: {list(required)}')
