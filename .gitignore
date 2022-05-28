@@ -17,6 +17,9 @@ saved_models/
 
 # python file to add table of contents (toc) to jupyter notebook
 add_toc.py
+# python file to list content of jupyter notebooks in directory
+contenu_nb.py
+
 # table of contents as text file
 *.ipynb.txt  
 
