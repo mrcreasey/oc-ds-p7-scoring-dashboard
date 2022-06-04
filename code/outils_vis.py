@@ -26,7 +26,7 @@ def get_option(key):
 def sanitize(fig_name: str) -> str:
     """Enlever les caractères interdits dans les filenames ou filepaths"""
     return fig_name.replace(' ', '_').replace(':', '-').replace(
-        '.', '-').replace('/', '_').replace('>', 'gt.').replace('<', 'lt.')
+        '.', '-').replace('\n', '').replace('/', '_').replace('>', 'gt.').replace('<', 'lt.')
 
 
 def to_png(fig_name=None) -> None:
