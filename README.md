@@ -9,8 +9,8 @@ personnes ayant peu ou pas du tout d'historique de prêt.
 
 L’entreprise souhaite mettre en œuvre **un outil de “scoring crédit”** pour calculer la qu’un client
 rembourse son crédit, puis classifie la demande en crédit accordé ou refusé. Elle souhaite donc
-développer **un algorithme de classification** en s’appuyant sur des sources de données variées (données
-comportementales, données provenant d'autres institutions financières, etc.).
+développer **un algorithme de classification** en s’appuyant sur des sources de données variées
+(données comportementales, données provenant d'autres institutions financières, etc.).
 
 ## Les données
 
@@ -39,9 +39,7 @@ Le plan de ce projet ce trouve en plus de détail dans le document
 - répondant aux spécifications ci-dessus et l’API de prédiction du score, déployées chacunes sur le
   cloud.
 
-### Un dossier de code contenant
-
-(sur un outil de versioning) :
+### Un dossier code
 
 - Le code de la modélisation (du prétraitement à la prédiction)
 - Le code générant le dashboard
@@ -49,17 +47,12 @@ Le plan de ce projet ce trouve en plus de détail dans le document
 
 ### [Une note méthodologique]
 
-décrivant :
-
-- La méthodologie d'entraînement du modèle (2 pages maximum)
-- La fonction coût métier, l'algorithme d'optimisation et la métrique d'évaluation (1 page maximum)
-- L’interprétabilité globale et locale du modèle (1 page maximum)
-- Les limites et les améliorations possibles (1 page maximum)
+- La méthodologie d'entraînement du modèle
+- La fonction coût métier, l'algorithme d'optimisation et la métrique d'évaluation
+- L’interprétabilité globale et locale du modèle
+- Les limites et les améliorations possibles
 
 ### [Un support de présentation]
-
-pour la soutenance, détaillant le travail réalisé
-
 
 ## Compétences évaluées
 
