@@ -8,3 +8,4 @@ yellowbrick==1.4
 imbalanced-learn==0.9
 lightgbm==3.3.2
 shap==0.40
+flask==2.1.2
