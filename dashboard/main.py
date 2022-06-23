@@ -5,13 +5,16 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pickle
 from lightgbm import LGBMClassifier
+import requests
 
 # -------------------------------------------
 # SECRETS
 # stored locally in .streamlit/secrets.toml
 # pasted into configuration in streamlit console when deploying
 # -------------------------------------------
-# Everything is accessible via the st.secrets dict:
+# Everything is accessible via the st.secrets dict (subsection [config]) :
+
+API_URL=st.secrets['config']['API_URL']
 model_server=st.secrets['config']['MODEL_SERVER']
 model_file=st.secrets['config']['MODEL_FILE']
 data_server=st.secrets['config']['DATA_SERVER']
@@ -64,22 +67,48 @@ def load_clients_data():
         data=data.set_index('SK_ID_CURR')
     return data
 
+client_id=None
+
+def main():
+    """Display data"""
+    global client_id
+    list_clients=get_list_clients()
+    nb_clients=len(list_clients)
+    client_id= st.sidebar.selectbox(f'Choisir un client (count={nb_clients}) :',list_clients)
+    st.write('Selected client ', client_id)
+    df_client=get_client_data(client_id)
+    if isinstance(df_client, pd.DataFrame):
+        st.dataframe(df_client)
+
+# ------------------------------------------------
+# Requests to API server
+# ------------------------------------------------
+
+@st.cache
 def get_list_clients():
-    # Load client data
-    data:pd.DataFrame = load_clients_data()
-    list_clients=list(data.index)
+    """Load list of clients""" 
+    response = requests.get(f'{API_URL}/clients')
+    data = response.json()
+    list_clients=list(data)
     return list_clients
 
-list_clients=get_list_clients()
-st.sidebar.selectbox('Choisir un client',list_clients)
+@st.cache
+def get_client_data(id):
+    response = requests.get(f'{API_URL}/client/{id}')
+    data = response.json()
+    if data.get('error'):
+        st.write(data)
+    else:
+        return pd.DataFrame.from_dict(data, orient='index')
 
+def plot_seaborn():
+    """test plotting seaborn"""
+    fig, ax = plt.subplots()
+    df_col=pd.DataFrame({
+        'y_true':[0,1,0,1,0,0,1,0,0,1,1,1,0,0,0],
+        'y_pred':[0,0,0,0,1,0,1,1,0,1,0,1,1,0,0],
+    })
+    sns.heatmap(df_col.corr(), ax=ax)
+    st.write(fig)
 
-# plotting seaborn
-fig, ax = plt.subplots()
-df_col=pd.DataFrame({
-    'y_true':[0,1,0,1,0,0,1,0,0,1,1,1,0,0,0],
-    'y_pred':[0,0,0,0,1,0,1,1,0,1,0,1,1,0,0],
-})
-sns.heatmap(df_col.corr(), ax=ax)
-st.write(fig)
-
+main()
