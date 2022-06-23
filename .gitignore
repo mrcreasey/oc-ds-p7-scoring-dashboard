@@ -7,6 +7,10 @@
 # put any (temporary) files to ignore in ignore directory
 ignore/
 
+# secret configuration
+.streamlit/
+
+
 # data files too large for source control
 # (see README.md or jupyter notebooks for data sources)
 data/
