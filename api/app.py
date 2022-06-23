@@ -25,13 +25,6 @@ def load_pickle(filename):
 
 model: LGBMClassifier = load_pickle(model_path)
 
-
-data= pd.DataFrame({
-    'SK_ID_CURR':[567,123,875],
-    'firstname':['Jean','Karen','Bob'],
-    'lastname':['Martin','Moreau','Holly'],
-    })
-
 # Load client data
 data:pd.DataFrame = load_pickle(data_path)
 if len(data)>50:
