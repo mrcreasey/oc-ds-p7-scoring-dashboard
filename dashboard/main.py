@@ -68,15 +68,27 @@ def load_clients_data():
     return data
 
 client_id=None
+threshold=0.542
 
 def main():
     """Display data"""
     global client_id
+    global threshold
     list_clients=get_list_clients()
     nb_clients=len(list_clients)
     client_id= st.sidebar.selectbox(f'Choisir un client (count={nb_clients}) :',list_clients)
     st.write('Selected client ', client_id)
-    df_client=get_client_data(client_id)
+    pred_data = get_client_predict(client_id,threshold,return_data=True)
+    df_client=None
+    if isinstance(pred_data,dict):
+        refuse_loan= pred_data.get('y_pred',1)
+        loan='prêt approuvé' if refuse_loan==0 else 'prêt refusé'
+        proba=pred_data.get('y_pred_proba',-1)
+        st.write(f'{loan} (probabilité = {proba:.3f}); threshold = {threshold:.3f}')
+        st.slider(label='probabilité',min_value=0., max_value=1., value=proba)
+    # df_client=get_client_data(client_id)
+        client_data= pred_data.get('client_data',{})
+        df_client =pd.DataFrame.from_dict(client_data, orient='index')
     if isinstance(df_client, pd.DataFrame):
         st.dataframe(df_client)
 
@@ -100,6 +112,19 @@ def get_client_data(id):
         st.write(data)
     else:
         return pd.DataFrame.from_dict(data, orient='index')
+
+@st.cache
+def get_client_predict(id, threshold=None, return_data=False):
+    """predict give loan or not"""
+    params=dict(return_data=return_data)
+    if not threshold is None:
+        params['threshold']= threshold
+    response = requests.get(f'{API_URL}/predict/{id}', params=params)
+    data = response.json()
+    if data.get('error'):
+        st.write(data)
+    else:
+        return data
 # ------------------------------------------------
 # Plotting routines
 # ------------------------------------------------
