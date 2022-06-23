@@ -1,4 +1,5 @@
 flask==2.1.2
+gunicorn==20.1.0
 imbalanced-learn==0.9.0
 lightgbm==3.3.2
 matplotlib==3.5.2
