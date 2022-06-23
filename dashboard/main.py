@@ -100,6 +100,9 @@ def get_client_data(id):
         st.write(data)
     else:
         return pd.DataFrame.from_dict(data, orient='index')
+# ------------------------------------------------
+# Plotting routines
+# ------------------------------------------------
 
 def plot_seaborn():
     """test plotting seaborn"""
