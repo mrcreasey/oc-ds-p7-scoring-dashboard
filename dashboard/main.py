@@ -4,11 +4,9 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from PIL import Image
-
-im = Image.open("favicon.ico")
+# Example page icons 💶💰💸💳🪙🤑💲
 st.set_page_config(
-    page_icon=im
+    page_icon='💶'
 )
 
 st.title('Scoring Dashboard')
@@ -17,6 +15,8 @@ st.subheader('Parcours Data Scientist')
 st.markdown("<i>Modèle de Scoring</i>", unsafe_allow_html=True)
 
 st.sidebar.subheader("Menu")
+list_clients=[12334,5663,34456,8877]
+st.sidebar.selectbox('Choisir un client',list_clients)
 
 
 # plotting seaborn
