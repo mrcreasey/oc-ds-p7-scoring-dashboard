@@ -5,7 +5,13 @@
 
 SECRET_KEY = "f8p|Ij0c{_P/r|{nb>Y/FmSE"
 
-MODEL_SERVER ='./saved_models'
-MODEL_FILE='lgbm_best_model.pickle'
+# Location of client data
 DATA_SERVER = './saved_models'
 DATA_FILE='x_test.pickle'
+
+# Location of saved model
+MODEL_SERVER ='./saved_models'
+MODEL_FILE='lgbm_best_model.pickle'
+
+# best threshold of saved model
+THRESHOLD=0.542
