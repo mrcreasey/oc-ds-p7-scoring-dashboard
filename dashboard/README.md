@@ -11,6 +11,10 @@ To deploy to streamlit :`
 - authorise github access
 - sign in at <https://share.streamlit.io/>
 - deploy by clicking `new app` (choose repository, branch, file to deploy = `dashboard/main.py`)
+
+## Secrets Management
+
+- <https://docs.streamlit.io/streamlit-cloud/get-started/deploy-an-app/connect-to-data-sources/secrets-management>
 - in `app settings, secrets`, if `.streamlit` folder is not saved to git:
   - copy-paste theme from file `.streamlit/config.toml`
   - copy-paste secrets from file `.streamlit/secrets.toml`
