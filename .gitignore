@@ -15,9 +15,9 @@ ignore/
 # (see README.md or jupyter notebooks for data sources)
 data/
 
-# don't save saved models to git
-saved_models/
-*.pickle
+# add pickled models to git for use in flask API
+# saved_models/
+# *.pickle
 
 # python file to add table of contents (toc) to jupyter notebook
 add_toc.py
