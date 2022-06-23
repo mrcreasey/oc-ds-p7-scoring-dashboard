@@ -5,10 +5,12 @@ import pandas as pd
 import pickle
 
 # Intitialisation
+# to run locally:
+# 
 app = Flask(__name__)
 # Config options - Make sure you created a 'config.py' file.
-app.config.from_object('config')
-# To get one variable, tape app.config['MY_VARIABLE']
+app.config.from_object('api.config')
+# To get one variable, tap app.config['MY_VARIABLE']
 
 model_server=app.config['MODEL_SERVER']
 model_file=app.config['MODEL_FILE']
