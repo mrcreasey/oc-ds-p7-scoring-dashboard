@@ -12,6 +12,7 @@ DATA_FILE='x_test.pickle'
 # Location of saved model
 MODEL_SERVER ='./saved_models'
 MODEL_FILE='lgbm_best_model.pickle'
+EXPLAINER_FILE='lgbm_explainer.pickle'
 
 # best threshold of saved model
 THRESHOLD=0.542

@@ -1,8 +1,11 @@
 from flask import Flask, jsonify, request
 from lightgbm import LGBMClassifier
+from imblearn.pipeline import Pipeline as imbpipeline
+from sklearn.pipeline import Pipeline
 import numpy as np
 import pandas as pd
 import pickle
+import shap
 
 # Intitialisation
 # to run locally:
@@ -16,21 +19,28 @@ model_server=app.config['MODEL_SERVER']
 model_file=app.config['MODEL_FILE']
 data_server=app.config['DATA_SERVER']
 data_file=app.config['DATA_FILE']
+explainer_file=app.config['EXPLAINER_FILE']
 default_threshold=app.config['THRESHOLD']
 
 model_path=f'{model_server}/{model_file}'
+explainer_path=f'{model_server}/{explainer_file}'
 data_path=f'{data_server}/{data_file}'
 
 def load_pickle(filename):
     with open(filename, 'rb') as handle:
         return pickle.load(handle)
 
-model: LGBMClassifier = load_pickle(model_path)
+Model = imbpipeline or Pipeline or LGBMClassifier
+Explainer = shap.TreeExplainer or shap.LinearExplainer
+
+model: Model  = load_pickle(model_path)
+explainer: Explainer = load_pickle(explainer_path)
 
 # Load client data
 data:pd.DataFrame = load_pickle(data_path)
-if len(data)>50:
-    data=data.head(50)
+max_records= 500
+if len(data)>max_records:
+    data=data.head(max_records)
 
 # data.index should already have been set to SK_ID_CURR
 # this is so we do not have to drop the column before making predictions
@@ -43,7 +53,7 @@ list_clients=list(data.index)
 @app.route('/index/')
 def index():
     """list available api routes"""
-    routes = ['/clients/', '/client/{id}', '/predict/{id}']
+    routes = ['/clients/', '/client/{id}', '/predict/{id}', '/explain/{id}']
 
     htmlstr= '<html style="font-family: Roboto, Tahoma, sans-serif;"><body>'
     htmlstr+= '<p>valid routes are :<p><ul>'
@@ -110,6 +120,43 @@ def predict(id):
             id=id,
             y_pred_proba= y_pred_proba,
             y_pred= y_pred,
+            model_type=f'{type(model)}',
+            client_data=client_data
+        )
+    return response
+
+
+@app.route('/explain/<id>',  methods=['GET'])
+def explain(id):
+    """
+    Renvoie le score d'un client en réalisant 
+    le predict à partir du modèle final sauvegardé
+    Example :
+    - http://127.0.0.1:5000/predict/395445?threshold=0.3&return_data=y
+    """
+    client_data = get_client_data(data,id)
+    if client_data is None:
+        response=jsonify(error="Client inconnu")
+    else:
+        threshold = request.args.get('threshold',default_threshold)
+        if isinstance(threshold,str):
+            threshold=float(threshold)
+        return_data= is_true(request.args.get('return_data',False))  # type: ignore
+        y_pred_proba = model.predict_proba(client_data)[:,1]
+        y_pred_proba=y_pred_proba[0]
+        y_pred= int((y_pred_proba > threshold)*1)
+        # get first data row (as series)
+        feature_names=list(client_data.columns)
+        client_data=client_data.head(1)
+        explainer_shap_values = explainer.shap_values(client_data, check_additivity=False)
+        shap_values_series = pd.Series(data=explainer_shap_values[0], index=feature_names)
+        shap_values_dict = shap_values_series.to_dict() 
+        client_data= client_data.iloc[0].to_dict() if return_data else {}
+        response = jsonify(
+            id=id,
+            y_pred_proba= y_pred_proba,
+            y_pred= y_pred,
+            shap_values=shap_values_dict,
             client_data=client_data
         )
     return response
@@ -117,4 +164,4 @@ def predict(id):
 
 # python api/app.py -> runs locally on localhost port 5000
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
