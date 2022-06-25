@@ -7,6 +7,8 @@ import pandas as pd
 import pickle
 import shap
 
+from api.models import ClientPredictResponse, ErrorResponse
+
 # Intitialisation
 # to run locally:
 # 
@@ -70,24 +72,22 @@ def clients():
     response = jsonify(list_clients)
     return response
 
-def get_client_data(df:pd.DataFrame,id) :
+def get_client_data(df:pd.DataFrame, id:int) :
     """Renvoie les données d'un client """
     # client_data= data[data['SK_ID_CURR']==int(id)]
-    client_data= df[df.index==int(id)]
+    client_data = df[df.index==int(id)]
     if len (client_data) > 0:
         return client_data
 
 @app.route('/client/<id>',  methods=['GET'])
-def client(id):
+def client(id:int):
     """Renvoie les données d'un client """
     client_data = get_client_data(data,id)
     if client_data is None:
-        response=jsonify(error="Client inconnu")
+        response = ErrorResponse(error="Client inconnu")
     else:
-        clien=client_data.iloc[0].to_dict()
-        response= jsonify(clien)
-        # response = client_data.iloc[0].to_json()
-    return response
+        response = client_data.iloc[0].to_dict()
+    return jsonify(response)
 
 def is_true(ch:str or bool)-> bool:
     if isinstance(ch,bool):
@@ -97,7 +97,7 @@ def is_true(ch:str or bool)-> bool:
     return False
 
 @app.route('/predict/<id>',  methods=['GET'])
-def predict(id):
+def predict(id:int):
     """
     Renvoie le score d'un client en réalisant 
     le predict à partir du modèle final sauvegardé
@@ -106,28 +106,28 @@ def predict(id):
     """
     client_data = get_client_data(data,id)
     if client_data is None:
-        response=jsonify(error="Client inconnu")
+        response = ErrorResponse(error="Client inconnu")
     else:
         threshold = request.args.get('threshold',default_threshold)
         if isinstance(threshold,str):
-            threshold=float(threshold)
+            threshold = float(threshold)
         return_data= is_true(request.args.get('return_data',False))  # type: ignore
         y_pred_proba = model.predict_proba(client_data)[:,1]
-        y_pred_proba=y_pred_proba[0]
+        y_pred_proba = y_pred_proba[0]
         y_pred= int((y_pred_proba > threshold)*1)
         client_data=client_data.iloc[0].to_dict() if return_data else {}
-        response = jsonify(
+        response = ClientPredictResponse(
             id=id,
             y_pred_proba= y_pred_proba,
             y_pred= y_pred,
             model_type=f'{type(model)}',
             client_data=client_data
         )
-    return response
+    return jsonify(response)
 
 
 @app.route('/explain/<id>',  methods=['GET'])
-def explain(id):
+def explain(id:int):
     """
     Renvoie le score d'un client en réalisant 
     le predict à partir du modèle final sauvegardé
@@ -149,19 +149,21 @@ def explain(id):
         feature_names=list(client_data.columns)
         client_data=client_data.head(1)
         explainer_shap_values = explainer.shap_values(client_data, check_additivity=False)
-        shap_values_series = pd.Series(data=explainer_shap_values[0], index=feature_names)
-        shap_values_dict = shap_values_series.to_dict() 
+        shap_values = pd.Series(data=explainer_shap_values[0], index=feature_names).to_dict() 
+        expected_values = pd.Series(data=explainer.expected_value, index=feature_names).to_dict() 
         client_data= client_data.iloc[0].to_dict() if return_data else {}
         response = jsonify(
             id=id,
             y_pred_proba= y_pred_proba,
             y_pred= y_pred,
-            shap_values=shap_values_dict,
+            shap_values=shap_values,
+            expected_values= expected_values,
             client_data=client_data
         )
     return response
 
 
 # python api/app.py -> runs locally on localhost port 5000
+# python run.py -> correct path to imports (as on heroku)
 if __name__ == "__main__":
     app.run(debug=False)
