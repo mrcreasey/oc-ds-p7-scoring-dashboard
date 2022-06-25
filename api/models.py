@@ -1,7 +1,6 @@
 from enum import Enum
-from typing import Union, Optional
-from typing_extensions import NotRequired, TypedDict
-from pydantic import BaseModel
+from typing import Optional
+from typing_extensions import TypedDict
 
 
 class ModelName(str,Enum):
