@@ -17,6 +17,8 @@ Follow instructions at <https://devcenter.heroku.com/> :
   - `heroku login` (you will be asked to login)
   - `heroku create [app-name] --region eu`  (if no app-name, heroku generates a name, if no region heroku assigns region us)
   - `heroku run init`
+  
+After any modifications to the flask app code or configuration, git commit then run the following command :  
   - `git push heroku main` (or name of your branch)
 
 Your app will be built and deployed to `https://app-name.herokuapp.com/`
