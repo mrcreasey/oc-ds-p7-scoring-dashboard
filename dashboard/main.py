@@ -203,12 +203,67 @@ def show_local_explain(col):
             v2.write(d2,unsafe_allow_html=True)
 
             # Interprétabilité locale
-            st.write('Waterfall plot')
+            st.write('Interprétabilité locale (Waterfall plot)')
             plt.close()
             st_shap2(shap.plots.waterfall(exp, max_display=10))
             st.write('Force plot')
             plt.close()
             st_shap(shap.plots.force(exp))
+
+# -------------------------------------------------------------------------
+# Explain summary (global interpretation)
+@st.cache()
+def get_explain_all(nb=100)->Union[ClientExplainResponse, ErrorResponse]:
+    """explain give loan or not"""
+    params=dict(nb=nb)
+    response = requests.get(f'{API_URL}/explain/', params=params)
+    data = response.json()
+    if data.get('error'):
+        st.write(data)
+    return data
+
+
+def json_to_df(jd:dict)->pd.DataFrame:
+    """convert json to dataframe
+    https://stackoverflow.com/a/26646362/
+    """
+    df= pd.DataFrame(np.array(jd.get('data')), columns=jd.get('feature_names'))
+    #print (f'json_to_df, {jd.get("shape")}')
+    #print (f'json_to_df, {df.shape}')
+    return df
+
+def show_global_explain(col):
+    # Explain (maximum de 1000 clients, car plus de 1000 c'est des très gros réponses)
+    exp_data = get_explain_all(nb=300)
+    if not exp_data.get('error'):
+        # st.write(exp_data.keys())
+        x_data = exp_data.get('client_data')
+        df_data=json_to_df(x_data)
+        feature_names=df_data.columns
+        shap_values=np.array(exp_data.get('shap_values'))
+        expected_value=exp_data.get('expected_value')
+        client_values= df_data.to_numpy()
+        exp = shap.Explanation(shap_values,
+                base_values=expected_value,
+                feature_names=feature_names,
+                data=client_values
+                    )
+        with col:
+            d1='<span style="color:#FFF;background-color:#FF0051; padding:5px;margin: 10px;">augmentation de risque</span>'
+            d2='<span style="color:#FFF;background-color:#008BFB; padding:5px;margin: 10px;">reduction de risque</span>'
+            v1,v2=st.columns(2)
+            v1.write(d1,unsafe_allow_html=True)
+            v2.write(d2,unsafe_allow_html=True)
+
+            # Interprétabilité globale
+            # st.write('Summary plot')
+            # plt.close()
+            # st_shap2(shap.plots.summary(exp, max_display=20))
+            st.write('Interprétabilité globale')
+            plt.close()
+            st_shap2(shap.plots.beeswarm(exp, max_display=20))
+
+
 
 
 
@@ -223,13 +278,19 @@ def main():
     mc=st.container()    
     show_metrics(mc)
             
-    expander= st.expander('Variables les plus influentes pour ce client',expanded=True)
-    show_local_explain(expander)
+    expander_local= st.expander('Variables les plus influentes pour ce client',expanded=True)
+    show_local_explain(expander_local)
 
-    df_client =st.session_state.client_data.to_frame()
-    if isinstance(df_client, pd.DataFrame):
-        st.dataframe(df_client)
 
+    expander_global= st.expander('Variables influentes globalement',expanded=True)
+    show_global_explain(expander_global)
+
+    expander_client= st.expander('Client position dans chaque variable',expanded=True)
+    # show_variable_explain(expander_client)
+    with expander_client:
+        df_client =st.session_state.client_data.to_frame()
+        if isinstance(df_client, pd.DataFrame):
+            st.dataframe(df_client)
 
 # ------------------------------------------------
 # Utility functions
