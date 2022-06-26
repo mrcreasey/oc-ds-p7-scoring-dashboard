@@ -150,14 +150,14 @@ def explain(id:int):
         client_data=client_data.head(1)
         explainer_shap_values = explainer.shap_values(client_data, check_additivity=False)
         shap_values = pd.Series(data=explainer_shap_values[0], index=feature_names).to_dict() 
-        expected_values = pd.Series(data=explainer.expected_value, index=feature_names).to_dict() 
+        expected_value = explainer.expected_value 
         client_data= client_data.iloc[0].to_dict() if return_data else {}
         response = jsonify(
             id=id,
             y_pred_proba= y_pred_proba,
             y_pred= y_pred,
             shap_values=shap_values,
-            expected_values= expected_values,
+            expected_value= expected_value,
             client_data=client_data
         )
     return response

@@ -25,7 +25,7 @@ class ClientExplainResponse(TypedDict):
     """Model returned from request to explain model prediction"""
     id:int
     shap_values:dict
-    expected_values:dict
+    expected_value:float
     # if return_data==True
     client_data:Optional[dict]
     # if predict==True
