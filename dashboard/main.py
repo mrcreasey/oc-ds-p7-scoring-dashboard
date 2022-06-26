@@ -77,7 +77,7 @@ def initialise_session_state():
     # init_key('client_id',None)
     init_key('proba',0)
     init_key('threshold',0.542)
-    # init_key('threshold100',st.session_state.threshold*100)
+    init_key('threshold100',st.session_state.threshold*100)
 
 # ----------------------------------------
 # Load list of clients
@@ -88,8 +88,7 @@ def get_list_clients():
     return list(response.json())
  
 def show_select_client(col):
-    """Select client"""
-    # Liste de clients
+    """Selectionne un client parmi la liste des clients"""
     with st.spinner('recuperation de la liste de clients'):
         list_clients=get_list_clients()
         nb_clients=len(list_clients)
@@ -132,7 +131,7 @@ def update_client_data():
     pred_data = get_client_predict(client_id,threshold,return_data=True)
     if isinstance(pred_data,dict):
         st.session_state.proba=pred_data.get('y_pred_proba')
-        st.session_state.client_data=pred_data.get('client_data',{})
+        st.session_state.client_data=series_from_dictkey(pred_data,'client_data')
 
 
 def on_change_threshold():
@@ -152,7 +151,7 @@ def show_metrics(mc):
      delta = f'threshold = {st.session_state.threshold100:.1f}', delta_color = 'inverse')
     m3.metric(label ='Niveau de Risque :',value = f'{st.session_state.proba*100:.1f} %', delta = 'probabilité de defaut', delta_color = 'inverse')
     fig,ax=plt.subplots()
-    plot_gauge(arrow=st.session_state.proba, threshold=st.session_state.threshold, n_colors=50,title= 'risque', ax=ax)
+    plot_gauge(arrow=st.session_state.proba, threshold=st.session_state.threshold100/100, n_colors=50,title= 'risque', ax=ax)
     m4.write(fig)
 
 
@@ -181,6 +180,35 @@ def st_shap2(plot, height=None):
     st.write(fig)
  
 
+def show_local_explain(col):
+    # Explain
+    explain_data = get_client_explain(st.session_state.client_id, st.session_state.threshold, return_data=True)
+    if not explain_data.get('error'):
+        shap_values=series_from_dictkey(explain_data,'shap_values').to_numpy()
+        expected_value=explain_data.get('expected_value')
+        client_data=series_from_dictkey(explain_data,'client_data')
+        feature_names=client_data.index.tolist()
+        client_values= client_data.to_numpy()
+        st.session_state.client_data=client_data
+        exp = shap.Explanation(shap_values,
+                base_values=expected_value,
+                feature_names=feature_names,
+                data=client_values
+                    )
+        with col:
+            d1='<span style="color:#FFF;background-color:#FF0051; padding:5px;margin: 10px;">augmentation de risque</span>'
+            d2='<span style="color:#FFF;background-color:#008BFB; padding:5px;margin: 10px;">reduction de risque</span>'
+            v1,v2=st.columns(2)
+            v1.write(d1,unsafe_allow_html=True)
+            v2.write(d2,unsafe_allow_html=True)
+
+            # Interprétabilité locale
+            st.write('Waterfall plot')
+            plt.close()
+            st_shap2(shap.plots.waterfall(exp, max_display=10))
+            st.write('Force plot')
+            plt.close()
+            st_shap(shap.plots.force(exp))
 
 
 
@@ -191,60 +219,16 @@ def main():
     a1, a2= st.columns((1,1))
     show_select_client(a1)
     show_threshold_slider(a2)
+    update_client_data()
     mc=st.container()    
     show_metrics(mc)
-    update_client_data()
-
-    client_id=st.session_state.client_id
-    threshold= st.session_state.threshold
             
-    
-    with st.expander('Variables les plus influentes pour ce client',expanded=True):
-        # Explain
-        d1='<span style="color:#FFF;background-color:#FF0051; padding:5px;margin: 10px;">augmentation de risque</span>'
-        d2='<span style="color:#FFF;background-color:#008BFB; padding:5px;margin: 10px;">reduction de risque</span>'
-        v1,v2=st.columns(2)
-        v1.write(d1,unsafe_allow_html=True)
-        v2.write(d2,unsafe_allow_html=True)
-        explain_data = get_client_explain(client_id, threshold, return_data=True)
-        # st.write(list(explain_data.keys()))
-        if not explain_data.get('error'):
-            shap_values=series_from_dictkey(explain_data,'shap_values').to_numpy()
-            expected_value=explain_data.get('expected_value')
-            client_data=series_from_dictkey(explain_data,'client_data')
-            feature_names=client_data.index.tolist()
-            client_values= client_data.to_numpy()
-            exp = shap.Explanation(shap_values,
-                    base_values=expected_value,
-                    feature_names=feature_names,
-                    data=client_values
-                        )
-            #shap.initjs() 
-            #fig, _ = plt.subplots(figsize=(10, 10))
-            #shap.plots.beeswarm(exp, show=False)
-            #st.write(fig)
-            #st.write('Force plot')
-            #fig,ax=plt.subplots()
-            #st_shap(shap.plots.force(exp))
-            #fig = shap.plots.force(exp, show=True)
-            #st.write(fig)
-            
-            # Interprétabilité locale
-            st.write('Waterfall plot')
-            plt.close()
-            st_shap2(shap.plots.waterfall(exp, max_display=10))
-            st.write('Force plot')
-            plt.close()
-            st_shap(shap.plots.force(exp))
-            #fig=plt.gcf()
-            #st.write(fig)
+    expander= st.expander('Variables les plus influentes pour ce client',expanded=True)
+    show_local_explain(expander)
 
-
-        # df_client=get_client_data(client_id)
-        # client_data= pred_data.get('client_data',{})
-            df_client =client_data.to_frame()
-            if isinstance(df_client, pd.DataFrame):
-                st.dataframe(df_client)
+    df_client =st.session_state.client_data.to_frame()
+    if isinstance(df_client, pd.DataFrame):
+        st.dataframe(df_client)
 
 
 # ------------------------------------------------
