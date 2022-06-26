@@ -39,9 +39,11 @@ Explainer = shap.TreeExplainer or shap.LinearExplainer
 model: Model  = load_pickle(model_path)
 explainer: Explainer = load_pickle(explainer_path)
 
-# Load client data
+# Load client data 
+# In production, authenticated, authorised read CSV from AWS S3 bucket
+# data:pd.DataFrame = pd.read_csv(data_path)
 data:pd.DataFrame = load_pickle(data_path)
-max_records= 1000
+max_records= 1000 # Proof of concept (POC): limité pour accélerer le temps de réponse
 if len(data)>max_records:
     data=data.head(max_records)
 
