@@ -1,7 +1,6 @@
 from enum import Enum
-from typing import Union, Optional
-from typing_extensions import NotRequired, TypedDict
-from pydantic import BaseModel
+from typing import Optional
+from typing_extensions import TypedDict
 
 
 class ModelName(str,Enum):
@@ -26,6 +25,7 @@ class ClientExplainResponse(TypedDict):
     """Model returned from request to explain model prediction"""
     id:int
     shap_values:dict
+    expected_value:float
     # if return_data==True
     client_data:Optional[dict]
     # if predict==True
