@@ -47,7 +47,7 @@ def show_header():
     # --------------------------------------------------------------------
     # Logo + Title
     t1, t2 = st.columns((1,5)) 
-    t1.image('images/logo_projet_fintech.png', width = 120)
+    t1.image('dashboard/logo_projet_fintech.png', width = 120)
     c2= t2.container()
     c2.title('Scoring Dashboard')
     c2.subheader('OpenClassrooms Projet 7')
