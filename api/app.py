@@ -7,6 +7,7 @@ import pandas as pd
 import pickle
 import shap
 
+
 from api.models import ClientPredictResponse, ErrorResponse
 
 # Intitialisation
@@ -40,7 +41,7 @@ explainer: Explainer = load_pickle(explainer_path)
 
 # Load client data
 data:pd.DataFrame = load_pickle(data_path)
-max_records= 500
+max_records= 1000
 if len(data)>max_records:
     data=data.head(max_records)
 
@@ -126,13 +127,57 @@ def predict(id:int):
     return jsonify(response)
 
 
+def df_to_json(df:pd.DataFrame)->dict:
+    """convert dataframe to json
+    https://stackoverflow.com/a/26646362/
+    """
+    return dict(
+        feature_names=list(df.columns),
+        # dtypes=list(df.dtypes),
+        shape=df.shape,
+        data=df.to_numpy().tolist()
+    )
+
+def json_to_df(jd:dict)->pd.DataFrame:
+    """convert json to dataframe
+    https://stackoverflow.com/a/26646362/
+    """
+    df= pd.DataFrame(np.array(jd.get('data')), columns=jd.get('feature_names'))
+    # print (f'json_to_df, {jd.get("shape")}')
+    # print (f'json_to_df, {df.shape}')
+    return df
+
+
+@app.route('/explain/',  methods=['GET'])
+def explain_all():
+    """
+    Renvoie les explications shap de jusqu'à 1000 clients à partir du modèle final sauvegardé
+    Utilisé pour afficher les beeswarm et summary plots
+    Example :
+    - http://127.0.0.1:5000/explain/nb=100
+    """
+    sample_size:int = int(request.args.get('nb',100))
+    max_sample_size=1000
+    nb= min(max_sample_size,sample_size,len(data))
+    client_data:pd.DataFrame=data.sample(n=nb, random_state=42)
+    client_data_json= df_to_json(client_data)
+    # df_test=json_to_df(client_data_json)
+    shap_values = explainer.shap_values(client_data, check_additivity=False).tolist()
+    expected_value = explainer.expected_value  # only keep class 1)
+    response = jsonify(
+        shap_values=shap_values,
+        expected_value= expected_value,
+        client_data=client_data_json
+    )
+    return response
+
+
 @app.route('/explain/<id>',  methods=['GET'])
 def explain(id:int):
     """
-    Renvoie le score d'un client en réalisant 
-    le predict à partir du modèle final sauvegardé
+    Renvoie les explications shap d'un client à partir du modèle final sauvegardé
     Example :
-    - http://127.0.0.1:5000/predict/395445?threshold=0.3&return_data=y
+    - http://127.0.0.1:5000/explain/395445?threshold=0.3&return_data=y
     """
     client_data = get_client_data(data,id)
     if client_data is None:
