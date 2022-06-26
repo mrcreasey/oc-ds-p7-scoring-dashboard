@@ -8,7 +8,7 @@
 ignore/
 
 # secret configuration
-.streamlit/
+.streamlit/secrets.toml
 
 
 # data files too large for source control

@@ -1,11 +1,16 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-import pickle
-from lightgbm import LGBMClassifier
+import shap
 import requests
+
+# Type checking
+from typing import Union
+from api_models import ClientExplainResponse, ClientPredictResponse, ErrorResponse
+from gauge import plot_gauge
 
 # -------------------------------------------
 # SECRETS
@@ -15,96 +20,89 @@ import requests
 # Everything is accessible via the st.secrets dict (subsection [config]) :
 
 API_URL=st.secrets['config']['API_URL']
-model_server=st.secrets['config']['MODEL_SERVER']
-model_file=st.secrets['config']['MODEL_FILE']
-data_server=st.secrets['config']['DATA_SERVER']
-data_file=st.secrets['config']['DATA_FILE']
 default_threshold=st.secrets['config']['THRESHOLD']
-
-model_path=f'{model_server}/{model_file}'
-data_path=f'{data_server}/{data_file}'
-
-def load_pickle(filename):
-    with open(filename, 'rb') as handle:
-        return pickle.load(handle)
-
-model: LGBMClassifier = load_pickle(model_path)
-
-
 
 # -------------------------------------------
 #  PAGE LAYOUT
 # Example page icons 💶💰💸💳🪙🤑💲
 st.set_page_config(
     page_title='Scoring Dashboard',
-    page_icon='💶',
-    initial_sidebar_state="expanded",
+    page_icon='💸',
+    # initial_sidebar_state="expanded",
     layout="wide",
 )
 
-st.title('Scoring Dashboard')
-st.header('OpenClassrooms Projet 7')
-st.subheader('Parcours Data Scientist')
-st.markdown("<i>Modèle de Scoring</i>", unsafe_allow_html=True)
 
-st.sidebar.subheader("Menu")
+# -----------------------------------------------------
+# Header
+def show_header():
+    html_header="""
+        <head>
+            <meta charset="utf-8">
+            <meta name="author" content="Mark Creasey">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>             
+    """ 
+    st.write(html_header,unsafe_allow_html=True)
+    # --------------------------------------------------------------------
+    # Logo + Title
+    t1, t2 = st.columns((1,5)) 
+    t1.image('images/logo_projet_fintech.png', width = 120)
+    c2= t2.container()
+    c2.title('Scoring Dashboard')
+    c2.subheader('OpenClassrooms Projet 7')
+    c2.markdown('_Parcours Data Scientist_')
 
-@st.cache
-def load_model():
-    """Load Model for developing dashboard (replace with API afterwords)"""
-    model:LGBMClassifier=load_pickle(model_path)
-    return model
 
-@st.cache
-def load_clients_data():
-    """Load list of clients"""
-    data:pd.DataFrame = load_pickle(data_path)
-    if len(data)>50:
-        data=data.head(50)
-    # data.index should already have been set to SK_ID_CURR
-    # this is so we do not have to drop the column before making predictions
-    if 'SK_ID_CURR' in data.columns:
-        data=data.set_index('SK_ID_CURR')
-    return data
+# ----------------------------------------------------
+# Add custom styles
+st.markdown(
+    """<style>
+    .streamlit-expanderHeader {font-size: x-large;background:#FFDDDD;margin-bottom:10px;}
+    </style>""",
+    unsafe_allow_html=True,
+)
 
-client_id=None
-threshold=0.542
+# ----------------------------------------------------
+# load JS visualization code to notebook. Without this, the SHAP plots won't be displayed
+shap.initjs()        
 
-def main():
-    """Display data"""
-    global client_id
-    global threshold
-    list_clients=get_list_clients()
-    nb_clients=len(list_clients)
-    client_id= st.sidebar.selectbox(f'Choisir un client (count={nb_clients}) :',list_clients)
-    st.write('Selected client ', client_id)
-    pred_data = get_client_predict(client_id,threshold,return_data=True)
-    df_client=None
-    if isinstance(pred_data,dict):
-        refuse_loan= pred_data.get('y_pred',1)
-        loan='prêt approuvé' if refuse_loan==0 else 'prêt refusé'
-        proba=pred_data.get('y_pred_proba',-1)
-        st.write(f'{loan} (probabilité = {proba:.3f}); threshold = {threshold:.3f}')
-        st.slider(label='probabilité',min_value=0., max_value=1., value=proba)
-    # df_client=get_client_data(client_id)
-        client_data= pred_data.get('client_data',{})
-        df_client =pd.DataFrame.from_dict(client_data, orient='index')
-    if isinstance(df_client, pd.DataFrame):
-        st.dataframe(df_client)
 
-# ------------------------------------------------
-# Requests to API server
-# ------------------------------------------------
+# ----------------------------------------
+def init_key(key,value):
+    if key not in st.session_state:
+        st.session_state[key] = value
 
+def initialise_session_state():
+    # init_key('client_id',None)
+    init_key('proba',0)
+    init_key('threshold',0.542)
+    # init_key('threshold100',st.session_state.threshold*100)
+
+# ----------------------------------------
+# Load list of clients
 @st.cache
 def get_list_clients():
-    """Load list of clients""" 
+    """API - load list of clients""" 
     response = requests.get(f'{API_URL}/clients')
-    data = response.json()
-    list_clients=list(data)
-    return list_clients
+    return list(response.json())
+ 
+def show_select_client(col):
+    """Select client"""
+    # Liste de clients
+    with st.spinner('recuperation de la liste de clients'):
+        list_clients=get_list_clients()
+        nb_clients=len(list_clients)
+        # client_id= st.sidebar.selectbox(f'Choisir un client (count={nb_clients}) :',list_clients)
+        init_key('client_id',list_clients[0])
+        col.selectbox('Selectionne un client', list_clients, key='client_id', on_change=on_change_client, help='SK_ID_CURR')
 
-@st.cache
+def on_change_client():
+    update_client_data()
+
+# ----------------------------------------------
+# Predict client data
+@st.cache()
 def get_client_data(id):
     response = requests.get(f'{API_URL}/client/{id}')
     data = response.json()
@@ -113,8 +111,8 @@ def get_client_data(id):
     else:
         return pd.DataFrame.from_dict(data, orient='index')
 
-@st.cache
-def get_client_predict(id, threshold=None, return_data=False):
+@st.cache()
+def get_client_predict(id, threshold=None, return_data=False)->Union[ClientPredictResponse,None]:
     """predict give loan or not"""
     params=dict(return_data=return_data)
     if not threshold is None:
@@ -125,9 +123,157 @@ def get_client_predict(id, threshold=None, return_data=False):
         st.write(data)
     else:
         return data
+
+
+def update_client_data():
+    """Mettre à jour données du client et prediction de risque"""
+    client_id= st.session_state.client_id
+    threshold= None # st.session_state.threshold
+    pred_data = get_client_predict(client_id,threshold,return_data=True)
+    if isinstance(pred_data,dict):
+        st.session_state.proba=pred_data.get('y_pred_proba')
+        st.session_state.client_data=pred_data.get('client_data',{})
+
+
+def on_change_threshold():
+    print(f'on_change_threshold')
+    st.session_state.threshold =st.session_state.threshold100/100
+
+def show_threshold_slider(col):
+    col.slider('Threshold',0.,100.,1.,format='%g %%', 
+    key='threshold100',on_change=on_change_threshold)
+
+
+def show_metrics(mc):
+    '''Predict, et retourner les données client'''
+    m2,m3,m4= mc.columns(3)
+    m2.metric(label =f'Décision',
+    value = 'accepté' if (st.session_state.proba < st.session_state.threshold) else 'refusé',
+     delta = f'threshold = {st.session_state.threshold100:.1f}', delta_color = 'inverse')
+    m3.metric(label ='Niveau de Risque :',value = f'{st.session_state.proba*100:.1f} %', delta = 'probabilité de defaut', delta_color = 'inverse')
+    fig,ax=plt.subplots()
+    plot_gauge(arrow=st.session_state.proba, threshold=st.session_state.threshold, n_colors=50,title= 'risque', ax=ax)
+    m4.write(fig)
+
+
+# --------------------------------------------------------
+# Explain client data
+@st.cache()
+def get_client_explain(id, threshold=None, return_data=False)->Union[ClientExplainResponse, ErrorResponse]:
+    """explain give loan or not"""
+    params=dict(return_data=return_data)
+    if not threshold is None:
+        params['threshold']= threshold
+    response = requests.get(f'{API_URL}/explain/{id}', params=params)
+    data = response.json()
+    if data.get('error'):
+        st.write(data)
+    return data
+
+
+
+def st_shap(plot, height=None):
+    shap_html = f"<head>{shap.getjs()}</head><body>{plot.html()}</body>"
+    components.html(shap_html, height=height)
+
+def st_shap2(plot, height=None):
+    fig= plt.gcf() if plot is None else plot
+    st.write(fig)
+ 
+
+
+
+
+def main():
+    """Display data"""
+    initialise_session_state()
+    show_header()
+    a1, a2= st.columns((1,1))
+    show_select_client(a1)
+    show_threshold_slider(a2)
+    mc=st.container()    
+    show_metrics(mc)
+    update_client_data()
+
+    client_id=st.session_state.client_id
+    threshold= st.session_state.threshold
+            
+    
+    with st.expander('Variables les plus influentes pour ce client',expanded=True):
+        # Explain
+        d1='<span style="color:#FFF;background-color:#FF0051; padding:5px;margin: 10px;">augmentation de risque</span>'
+        d2='<span style="color:#FFF;background-color:#008BFB; padding:5px;margin: 10px;">reduction de risque</span>'
+        v1,v2=st.columns(2)
+        v1.write(d1,unsafe_allow_html=True)
+        v2.write(d2,unsafe_allow_html=True)
+        explain_data = get_client_explain(client_id, threshold, return_data=True)
+        # st.write(list(explain_data.keys()))
+        if not explain_data.get('error'):
+            shap_values=series_from_dictkey(explain_data,'shap_values').to_numpy()
+            expected_value=explain_data.get('expected_value')
+            client_data=series_from_dictkey(explain_data,'client_data')
+            feature_names=client_data.index.tolist()
+            client_values= client_data.to_numpy()
+            exp = shap.Explanation(shap_values,
+                    base_values=expected_value,
+                    feature_names=feature_names,
+                    data=client_values
+                        )
+            #shap.initjs() 
+            #fig, _ = plt.subplots(figsize=(10, 10))
+            #shap.plots.beeswarm(exp, show=False)
+            #st.write(fig)
+            #st.write('Force plot')
+            #fig,ax=plt.subplots()
+            #st_shap(shap.plots.force(exp))
+            #fig = shap.plots.force(exp, show=True)
+            #st.write(fig)
+            
+            # Interprétabilité locale
+            st.write('Waterfall plot')
+            plt.close()
+            st_shap2(shap.plots.waterfall(exp, max_display=10))
+            st.write('Force plot')
+            plt.close()
+            st_shap(shap.plots.force(exp))
+            #fig=plt.gcf()
+            #st.write(fig)
+
+
+        # df_client=get_client_data(client_id)
+        # client_data= pred_data.get('client_data',{})
+            df_client =client_data.to_frame()
+            if isinstance(df_client, pd.DataFrame):
+                st.dataframe(df_client)
+
+
+# ------------------------------------------------
+# Utility functions
+# ------------------------------------------------
+def series_from_dictkey(data,key:str)->pd.Series:
+    """
+    Convert a dictionary held within a dictionary key to a series.
+
+    Most response json are dictionaries within dictionaries (hierarchical json).
+    Use this method to extract a series
+    returns empty series otherwise
+    """
+    dict_key=data.get(key,{})
+    nb_keys= len(dict_key.keys())
+    df = pd.DataFrame.from_dict(data.get(key,{}),orient='index')
+    #st.write(f'series_from_dictkey(data,key={key}, nb = {nb_keys}, df.shape={df.shape}')
+    return df.iloc[:,0]
+
+
+# ------------------------------------------------
+# Requests to API server
+# ------------------------------------------------
+
+
 # ------------------------------------------------
 # Plotting routines
 # ------------------------------------------------
+
 
 def plot_seaborn():
     """test plotting seaborn"""
