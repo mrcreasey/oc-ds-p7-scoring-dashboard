@@ -1,6 +1,8 @@
+from pyexpat import features
 from flask import Flask, jsonify, request
 from lightgbm import LGBMClassifier
 from imblearn.pipeline import Pipeline as imbpipeline
+from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 import numpy as np
 import pandas as pd
@@ -38,12 +40,18 @@ Explainer = shap.TreeExplainer or shap.LinearExplainer
 
 model: Model  = load_pickle(model_path)
 explainer: Explainer = load_pickle(explainer_path)
+data:pd.DataFrame=pd.DataFrame()
 
 # Load client data 
-# In production, authenticated, authorised read CSV from AWS S3 bucket
-# data:pd.DataFrame = pd.read_csv(data_path)
-data:pd.DataFrame = load_pickle(data_path)
-max_records= 1000 # Proof of concept (POC): limité pour accélerer le temps de réponse
+if data_file.endswith('pickle'):
+    # preprocessed data for Proof of Concept
+    data:pd.DataFrame = load_pickle(data_path)
+else:
+    # Raw data files
+    # In production, conduct an authenticated, authorised read CSV from AWS S3 bucket
+    data:pd.DataFrame = pd.read_csv(data_path)
+
+max_records = 1000 # Proof of concept (POC): limité pour accélerer le temps de réponse
 if len(data)>max_records:
     data=data.head(max_records)
 
@@ -51,8 +59,29 @@ if len(data)>max_records:
 # this is so we do not have to drop the column before making predictions
 if 'SK_ID_CURR' in data.columns:
     data=data.set_index('SK_ID_CURR')
+
 list_clients=list(data.index)
 
+# Par défaut, le classifier est le model, et les données n'ont pas besoin de preprocess
+data_prep=data
+clf = model
+type_model=type(model)
+
+if isinstance(model, imbpipeline) or isinstance(model,Pipeline):
+    # shap n'est pas capable de travailler sur les pipelines
+    # il faut extraire le classificateur et preprocess les données (si besoin)
+    clf=model.named_steps['clf']
+    type_model= type(clf)
+    # on enleve le classificateur pour faire le preprocessing/feature_selection des données
+    data_prep=pd.DataFrame(model[:-1].transform(data),index=data.index, columns=data.columns)
+
+
+print(f'init_app, clf = {type_model}')
+# if explainer is None:
+#     if isinstance(clf,LGBMClassifier):
+#         explainer=shap.TreeExplainer(clf,data_prep)
+#     elif isinstance(clf,LogisticRegression):
+#         explainer= shap.LinearExplainer(clf,data_prep)    
 
 @app.route('/')
 @app.route('/index/')
@@ -107,6 +136,7 @@ def predict(id:int):
     Example :
     - http://127.0.0.1:5000/predict/395445?threshold=0.3&return_data=y
     """
+    global type_model
     client_data = get_client_data(data,id)
     if client_data is None:
         response = ErrorResponse(error="Client inconnu")
@@ -123,7 +153,7 @@ def predict(id:int):
             id=id,
             y_pred_proba= y_pred_proba,
             y_pred= y_pred,
-            model_type=f'{type(model)}',
+            model_type=f'{type_model}',
             client_data=client_data
         )
     return jsonify(response)
@@ -157,14 +187,19 @@ def explain_all():
     Utilisé pour afficher les beeswarm et summary plots
     Example :
     - http://127.0.0.1:5000/explain/nb=100
-    """
+    """ 
+    global data, model, explainer
     sample_size:int = int(request.args.get('nb',100))
     max_sample_size=1000
     nb= min(max_sample_size,sample_size,len(data))
-    client_data:pd.DataFrame=data.sample(n=nb, random_state=42)
-    client_data_json= df_to_json(client_data)
-    # df_test=json_to_df(client_data_json)
-    shap_values = explainer.shap_values(client_data, check_additivity=False).tolist()
+    data_sample:pd.DataFrame=data.sample(n=nb, random_state=42)
+    # preprocess
+    data_sample_prep = data_sample
+    if isinstance(model,imbpipeline) or isinstance(model,Pipeline):
+        data_sample_prep = pd.DataFrame(model[:-1].transform(data_sample), 
+                index=data_sample.index,columns=data_sample.columns)
+    client_data_json= df_to_json(data_sample_prep)
+    shap_values = explainer.shap_values(data_sample_prep, check_additivity=False).tolist()
     expected_value = explainer.expected_value  # only keep class 1)
     response = jsonify(
         shap_values=shap_values,
@@ -195,7 +230,12 @@ def explain(id:int):
         # get first data row (as series)
         feature_names=list(client_data.columns)
         client_data=client_data.head(1)
-        explainer_shap_values = explainer.shap_values(client_data, check_additivity=False)
+        # preprocess
+        client_data_prep = client_data
+        if isinstance(model,imbpipeline) or isinstance(model,Pipeline):
+            client_data_prep = pd.DataFrame(model[:-1].transform(client_data), 
+            index=client_data.index,columns=client_data.columns)
+        explainer_shap_values = explainer.shap_values(client_data_prep, check_additivity=False)
         shap_values = pd.Series(data=explainer_shap_values[0], index=feature_names).to_dict() 
         expected_value = explainer.expected_value 
         client_data= client_data.iloc[0].to_dict() if return_data else {}
