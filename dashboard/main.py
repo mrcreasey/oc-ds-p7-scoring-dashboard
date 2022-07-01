@@ -58,7 +58,7 @@ def show_header():
 # Add custom styles
 st.markdown(
     """<style>
-    .streamlit-expanderHeader {font-size: x-large;background:#FFDDDD;margin-bottom:10px;}
+    .streamlit-expanderHeader {font-size: x-large;background:#DDDDDD;margin-bottom:10px;}
     </style>""",
     unsafe_allow_html=True,
 )
@@ -66,6 +66,26 @@ st.markdown(
 # ----------------------------------------------------
 # load JS visualization code to notebook. Without this, the SHAP plots won't be displayed
 shap.initjs()        
+
+# ---------------------------------------
+def get_query_params():
+    queryparams=st.experimental_get_query_params()
+    id= queryparams.get('id')
+    threshold=queryparams.get('threshold')
+    if not id is None:
+        st.session_state.client_id=int(id[0])
+    if not threshold is None:
+        thresh=float(threshold[0])
+        st.session_state.threshold=thresh
+        st.session_state.threshold100 =thresh*100
+
+def set_query_params():
+    params=dict(
+        id= st.session_state.client_id,
+        threshold=st.session_state.threshold
+    )
+    st.experimental_set_query_params(**params)
+
 
 
 # ----------------------------------------
@@ -76,8 +96,10 @@ def init_key(key,value):
 def initialise_session_state():
     # init_key('client_id',None)
     init_key('proba',0)
-    init_key('threshold',0.542)
+    # Best threshold for both lgbm and logistic model is 0.6
+    init_key('threshold',default_threshold)
     init_key('threshold100',st.session_state.threshold*100)
+    get_query_params()
 
 # ----------------------------------------
 # Load list of clients
@@ -106,7 +128,7 @@ def get_client_data(id):
     response = requests.get(f'{API_URL}/client/{id}')
     data = response.json()
     if data.get('error'):
-        st.write(data)
+        return data
     else:
         return pd.DataFrame.from_dict(data, orient='index')
 
@@ -118,10 +140,7 @@ def get_client_predict(id, threshold=None, return_data=False)->Union[ClientPredi
         params['threshold']= threshold
     response = requests.get(f'{API_URL}/predict/{id}', params=params)
     data = response.json()
-    if data.get('error'):
-        st.write(data)
-    else:
-        return data
+    return data
 
 
 def update_client_data():
@@ -132,11 +151,14 @@ def update_client_data():
     if isinstance(pred_data,dict):
         st.session_state.proba=pred_data.get('y_pred_proba')
         st.session_state.client_data=series_from_dictkey(pred_data,'client_data')
-
+    elif pred_data.get('error'):
+        st.write(pred_data)
+    set_query_params()
 
 def on_change_threshold():
-    print(f'on_change_threshold')
+    # print(f'on_change_threshold')
     st.session_state.threshold =st.session_state.threshold100/100
+    set_query_params()
 
 def show_threshold_slider(col):
     col.slider('Threshold',0.,100.,1.,format='%g %%', 
@@ -146,8 +168,12 @@ def show_threshold_slider(col):
 def show_metrics(mc):
     '''Predict, et retourner les données client'''
     m2,m3,m4= mc.columns(3)
+    accept = st.session_state.proba < st.session_state.threshold
+    accept_style='{background: rgba(0,255, 255, 0.1);color: green;}'
+    refuse_style='{background: rgba(255,0, 20, 0.1);color: red;}'
+    m2.markdown(f'<style>div[data-testid="metric-container"] {accept_style if accept else refuse_style}</style>', unsafe_allow_html=True)
     m2.metric(label =f'Décision',
-    value = 'accepté' if (st.session_state.proba < st.session_state.threshold) else 'refusé',
+    value = 'accepté' if accept else 'refusé',
      delta = f'threshold = {st.session_state.threshold100:.1f}', delta_color = 'inverse')
     m3.metric(label ='Niveau de Risque :',value = f'{st.session_state.proba*100:.1f} %', delta = 'probabilité de defaut', delta_color = 'inverse')
     fig,ax=plt.subplots()
@@ -237,7 +263,7 @@ def show_global_explain(col):
     exp_data = get_explain_all(nb=300)
     if not exp_data.get('error'):
         # st.write(exp_data.keys())
-        x_data = exp_data.get('client_data')
+        x_data:dict = exp_data.get('client_data')
         df_data=json_to_df(x_data)
         feature_names=df_data.columns
         shap_values=np.array(exp_data.get('shap_values'))
