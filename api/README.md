@@ -41,3 +41,31 @@ command :
 Your app will be built and deployed to `https://app-name.herokuapp.com/`
 
 If app fails to build, type `heroku logs` to identify reason for failure
+
+## Reading data from another source
+
+For Proof of Concept (POC), this application reads the data locally on Heroku.
+
+For production, the code should be modified to read from an external source (with authentification, encryption and add a library for in-memory cache):
+
+For example, read from a bucket S3 on AWS, obtaining access through ‘secret’ config vars :
+```bash
+$ heroku login
+$ heroku config:set S3_KEY=8N029N81 S3_SECRET=9s83109d3+583493190 S3_BUCKET=MC-OC-7
+```
+
+Then in the source code `api/app.py`:
+```python 
+import s3fs
+S3_BUCKET = os.environ['S3_BUCKET']
+S3_KEY = os.environ['S3_KEY']; S3_SECRET = os.environ['S3_SECRET'])
+fs = s3fs.S3FileSystem(anon=False, access_key=S3_KEY, secret_key=S3_SECRET)
+
+def read(filename)
+    with fs.open(f's3://{S3_BUCKET}/{filename}') as f:
+        return pd.read_csv(f)
+
+data = read('x_test.csv')        
+```
+
+See <https://s3fs.readthedocs.io/en/latest/> for examples
