@@ -167,13 +167,13 @@ def show_threshold_slider(col):
 
 def show_metrics(mc):
     '''Predict, et retourner les données client'''
-    m2,m3,m4= mc.columns(3)
     accept = st.session_state.proba < st.session_state.threshold
     accept_style='{background: rgba(0,255, 255, 0.1);color: green;}'
     refuse_style='{background: rgba(255,0, 20, 0.1);color: red;}'
-    m2.markdown(f'<style>div[data-testid="metric-container"] {accept_style if accept else refuse_style}</style>', unsafe_allow_html=True)
-    m2.metric(label =f'Décision',
-    value = 'accepté' if accept else 'refusé',
+    metric_style=f'<style>div[data-testid="metric-container"] {accept_style if accept else refuse_style}</style>'
+    mc.markdown(metric_style, unsafe_allow_html=True)
+    m2,m3,m4= mc.columns(3)
+    m2.metric(label =f'Décision', value = 'accepté' if accept else 'refusé',
      delta = f'threshold = {st.session_state.threshold100:.1f}', delta_color = 'inverse')
     m3.metric(label ='Niveau de Risque :',value = f'{st.session_state.proba*100:.1f} %', delta = 'probabilité de defaut', delta_color = 'inverse')
     fig,ax=plt.subplots()
