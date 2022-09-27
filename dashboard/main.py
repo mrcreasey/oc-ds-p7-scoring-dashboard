@@ -1,3 +1,4 @@
+import IPython # needed to call init.js on shap
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
